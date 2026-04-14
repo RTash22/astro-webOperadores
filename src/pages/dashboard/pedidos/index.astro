@@ -1,0 +1,147 @@
+---
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+
+const stats = [
+  { label: 'Total Pedidos',  value: '12', icon: 'inventory_2',    iconColor: 'text-primary',   bg: 'bg-primary/5'    },
+  { label: 'En Revisión',    value: '4',  icon: 'pending',         iconColor: 'text-outline',   bg: 'bg-outline/5'   },
+  { label: 'Aceptados',      value: '6',  icon: 'check_circle',    iconColor: 'text-secondary', bg: 'bg-secondary/5' },
+  { label: 'Rechazados',     value: '2',  icon: 'cancel',          iconColor: 'text-error',     bg: 'bg-error/5'     },
+];
+
+const orders = [
+  {
+    id: '#CP-88421',
+    date: '14 Abr 2026',
+    wholesaler: 'Global Logistics Corp',
+    wholesalerId: 'WH-7721-B',
+    products: 'Precision X1 Smartwatch · AudioPro Studio Gen 2',
+    total: '$1,939.00',
+    status: 'En Revisión',
+    statusClass: 'bg-surface-container-highest text-on-surface-variant',
+    statusIcon: 'pending',
+  },
+  {
+    id: '#CP-88415',
+    date: '12 Abr 2026',
+    wholesaler: 'Zenith Distribution',
+    wholesalerId: 'WH-0091-Z',
+    products: 'Classic Executive Watch',
+    total: '$4,200.00',
+    status: 'Aceptado',
+    statusClass: 'bg-secondary-container text-on-secondary-container',
+    statusIcon: 'check_circle',
+  },
+  {
+    id: '#CP-88410',
+    date: '10 Abr 2026',
+    wholesaler: 'TechNova Solutions',
+    wholesalerId: 'WH-3301-T',
+    products: 'Teclado Mecánico Pro Edition RGB x20',
+    total: '$1,690.00',
+    status: 'En Revisión',
+    statusClass: 'bg-surface-container-highest text-on-surface-variant',
+    statusIcon: 'pending',
+  },
+  {
+    id: '#CP-88402',
+    date: '8 Abr 2026',
+    wholesaler: 'Global Import Co.',
+    wholesalerId: 'WH-4490-G',
+    products: 'Mouse Ergonómico MX x50',
+    total: '$2,250.00',
+    status: 'Rechazado',
+    statusClass: 'bg-error-container text-on-error-container',
+    statusIcon: 'cancel',
+  },
+  {
+    id: '#CP-88398',
+    date: '5 Abr 2026',
+    wholesaler: 'Nexus Logistics',
+    wholesalerId: 'WH-2210-N',
+    products: 'Headset Studio x15 · Tablet Grafic Pro x8',
+    total: '$3,947.50',
+    status: 'Aceptado',
+    statusClass: 'bg-secondary-container text-on-secondary-container',
+    statusIcon: 'check_circle',
+  },
+];
+---
+
+<DashboardLayout title="Pedidos · Operadores">
+  <div class="p-8 space-y-8">
+
+    <!-- Header -->
+    <div>
+      <nav class="flex items-center gap-2 text-sm text-outline mb-4">
+        <span>Marketplace</span>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="text-primary font-medium">Mis Pedidos</span>
+      </nav>
+      <h1 class="font-headline text-4xl font-extrabold text-on-surface tracking-tight">Mis Pedidos</h1>
+      <p class="text-on-surface-variant mt-1">Seguimiento de tus solicitudes enviadas a los mayoristas.</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {stats.map((s) => (
+        <div class="bg-surface-container-lowest rounded-xl p-5 flex flex-col gap-3">
+          <div class={`w-10 h-10 rounded-lg flex items-center justify-center ${s.bg}`}>
+            <span class={`material-symbols-outlined ${s.iconColor}`}>{s.icon}</span>
+          </div>
+          <div>
+            <p class="text-outline text-xs font-bold uppercase tracking-widest">{s.label}</p>
+            <p class="font-headline text-3xl font-extrabold text-on-surface mt-0.5">{s.value}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <!-- Orders Table -->
+    <div class="bg-surface-container-lowest rounded-xl overflow-hidden">
+      <div class="px-6 py-5 border-b border-outline-variant/10">
+        <h2 class="font-headline text-lg font-bold text-on-surface">Historial de Solicitudes</h2>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="bg-surface-container-low text-outline text-xs font-bold uppercase tracking-widest">
+              <th class="px-6 py-4">Pedido</th>
+              <th class="px-6 py-4">Mayorista</th>
+              <th class="px-6 py-4">Productos</th>
+              <th class="px-6 py-4 text-right">Total</th>
+              <th class="px-6 py-4 text-center">Estado</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-outline-variant/10">
+            {orders.map((o) => (
+              <tr class="hover:bg-surface-container-low/50 transition-colors">
+                <td class="px-6 py-5">
+                  <p class="font-bold text-primary text-sm">{o.id}</p>
+                  <p class="text-[11px] text-outline mt-0.5">{o.date}</p>
+                </td>
+                <td class="px-6 py-5">
+                  <p class="font-semibold text-on-surface text-sm">{o.wholesaler}</p>
+                  <p class="text-[11px] text-outline mt-0.5">{o.wholesalerId}</p>
+                </td>
+                <td class="px-6 py-5">
+                  <p class="text-sm text-on-surface-variant max-w-xs truncate">{o.products}</p>
+                </td>
+                <td class="px-6 py-5 text-right">
+                  <p class="font-headline font-bold text-on-surface">{o.total}</p>
+                </td>
+                <td class="px-6 py-5 text-center">
+                  <span class={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${o.statusClass}`}>
+                    <span class="material-symbols-outlined text-xs">{o.statusIcon}</span>
+                    {o.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</DashboardLayout>

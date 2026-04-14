@@ -1,0 +1,20 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import Sidebar from '../components/Sidebar.astro';
+import Navbar from '../components/Navbar.astro';
+
+interface Props {
+  title?: string;
+}
+const { title = 'Dashboard · Operadores' } = Astro.props;
+---
+
+<BaseLayout title={title}>
+  <div class="bg-background text-on-background font-body selection:bg-primary/20">
+    <Sidebar />
+    <main class="ml-64 min-h-screen">
+      <Navbar />
+      <slot />
+    </main>
+  </div>
+</BaseLayout>

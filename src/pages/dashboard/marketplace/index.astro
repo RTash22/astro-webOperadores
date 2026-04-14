@@ -1,0 +1,227 @@
+---
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+
+const wholesalers = [
+  {
+    initial: 'T',
+    name: 'TechNova Solutions',
+    badge: 'Verified Wholesaler',
+    badgeClass: 'text-secondary',
+    price: '$84.50',
+    minOrder: 'Min. 10 unidades',
+    stock: '420 uds',
+    stockClass: 'bg-secondary-container text-on-secondary-container',
+    delivery: '24 - 48 hrs',
+    deliveryNote: 'Nacional',
+  },
+  {
+    initial: 'G',
+    name: 'Global Import Co.',
+    badge: 'Premium Partner',
+    badgeClass: 'text-outline',
+    price: '$82.10',
+    minOrder: 'Min. 50 unidades',
+    stock: '12 uds',
+    stockClass: 'bg-error-container text-on-error-container',
+    delivery: '5 - 7 días',
+    deliveryNote: 'Importación',
+  },
+  {
+    initial: 'N',
+    name: 'Nexus Logistics',
+    badge: 'Direct Factory',
+    badgeClass: 'text-secondary',
+    price: '$88.00',
+    minOrder: 'Sin mínimo',
+    stock: '>1000 uds',
+    stockClass: 'bg-secondary-container text-on-secondary-container',
+    delivery: 'Inmediata',
+    deliveryNote: 'Pick-up disponible',
+  },
+];
+
+const relatedProducts = [
+  {
+    name: 'Mouse Ergonómico MX',
+    description: 'Precision Tracking',
+    price: '$45.00',
+    imgSrc: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCtpzPY0acyRggJtLlNMwBW8JfjjFkacgXk8uWCoVcy_pJxqBa8oPzxUwexQQU8EK28vciPeEcSrLfgtNdCKe4TgP89hIKAkrjd3gr5kCVqH5MqPxtGcYb5__hEaK5k-CeF-fnBRa1ZWn4dTkxD18wb0HXZ1-BTD7cg4l-KHguiFaODaeurTeu34WRwHoF0aUjO-9o2EmC5e-boHreV3bCGxRz8F-fZ16UOQo4OlBMwcbNWNau2Qjkjsf5sfazQdaI3U6mevuM8',
+    imgAlt: 'Mouse Ergonómico',
+    wide: true,
+  },
+  {
+    name: 'Tablet Grafic Pro',
+    description: null,
+    price: '$120.00',
+    imgSrc: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCfETc9_I-54XGgzP6pPWleBjoe7Q4JLsIICQqLbRkD7WEDqM4Iuy1jPMLlc0FO01jUIZwEsCglRzF9fcrcXbgngzWVRz4NwsYyDX8XI_eqQB4i19zz0FfG8cLYBxigv73o_-kJenf2CrSLgrxyoXykZ1498cPV0yx4vlGayQkNclJNilGYLxCvBnSkdWLwgym38Sdt7aso9Tp7IZXTLHqNryXrMZUXGrRfWYsoO3X3HKN7z_c-SubOeeWMYye-2Le6BLKWiwzNuBU',
+    imgAlt: 'Tablet',
+    wide: false,
+  },
+  {
+    name: 'Headset Studio',
+    description: null,
+    price: '$65.90',
+    imgSrc: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAaEbkCdG4Qz15UYml0NP-6TnHSUBguMtjqERFuIQ4akNgOZitdV6rLGz3I_4CRC2XkYfLEfpfU89TJJfqoMjXnL7vreubc8mWeHp6erFNJA5t4SLrPa1br4XYt3kTZnSx5DCWZwXHAo0aLU9C8l4huQJQzvQmyPZHyFrgq7UZlig3lT4LocClX-IU4ghpGaX5R2gX6SfVUy3eiArpU3nO5lldsCgpfo0DrkZOIVqXsAP63y_cS7-o1za0vKuUNhi7wlx6469qJsu8',
+    imgAlt: 'Headset',
+    wide: false,
+  },
+];
+---
+
+<DashboardLayout title="Marketplace · Operadores">
+  <div class="p-8">
+
+    <!-- Page Header -->
+    <div class="mb-10">
+      <h1 class="text-4xl font-extrabold text-on-background tracking-tight mb-2">Buscador de Productos</h1>
+      <nav class="flex text-sm text-outline mb-6">
+        <span>Marketplace</span>
+        <span class="mx-2">/</span>
+        <span class="text-primary font-semibold">Teclados PC</span>
+      </nav>
+
+      <!-- Search Bar -->
+      <div class="bg-surface-container-low p-6 rounded-xl flex flex-wrap gap-4 items-end">
+        <div class="flex-1 min-w-[300px]">
+          <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-2 ml-1">Producto</label>
+          <div class="relative">
+            <input
+              type="text"
+              value="Teclados PC"
+              class="w-full bg-surface-container-lowest border-none py-4 px-5 rounded-xl text-lg font-semibold focus:ring-2 focus:ring-primary/20"
+            />
+            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary">keyboard</span>
+          </div>
+        </div>
+        <div class="w-full md:w-48">
+          <label class="block text-xs font-bold uppercase tracking-wider text-outline mb-2 ml-1">Categoría</label>
+          <select class="w-full bg-surface-container-lowest border-none py-4 px-4 rounded-xl font-medium focus:ring-2 focus:ring-primary/20 appearance-none">
+            <option>Periféricos</option>
+            <option>Hardware</option>
+          </select>
+        </div>
+        <button class="bg-primary text-white py-4 px-10 rounded-xl font-bold hover:opacity-90 transition-opacity h-[60px]">
+          Buscar
+        </button>
+      </div>
+    </div>
+
+    <div class="space-y-8">
+
+      <!-- Product Overview Card -->
+      <section class="bg-surface-container-low overflow-hidden rounded-xl flex flex-col md:flex-row">
+        <div class="md:w-1/3 bg-white p-8 flex items-center justify-center">
+          <img
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3EqjCd1SD6tEyEqwU78IFH5I1RXmLa65IGdNcZJ4df7rOhGcF3vCrrvpgNlRInrKg9iiNOXtxKMmIyxKnS-6jlEw1bewVoG8JClj8m77nFYgLTj-DO1k7iWKA2BiKs-zh3gKGIVkpFO4CP0qu3xhN7jaaZDKRTj_DtWzbCm9VkV02cOJr82sykqsJtKO5sJDGnPxyWCGySW209u6MEwkCZ3FoWMHswuct-BeksR-diI5VDWPErsU-Ke2nS1_VCynpwCb2h9Pq_bg"
+            alt="Mechanical Keyboard"
+            class="max-w-full h-auto transform -rotate-3 hover:rotate-0 transition-transform duration-500"
+          />
+        </div>
+        <div class="md:w-2/3 p-10 flex flex-col justify-center">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="bg-tertiary-fixed text-on-tertiary-fixed text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">Lo más buscado</span>
+            <span class="text-outline text-sm">SKU: TK-9023-MECH</span>
+          </div>
+          <h2 class="text-3xl font-bold text-on-surface mb-4 leading-tight">
+            Teclado Mecánico Pro Edition RGB<br />
+            <span class="text-primary">Serie-X Wireless</span>
+          </h2>
+          <p class="text-on-surface-variant max-w-xl mb-6">
+            Switch Brown táctil, construcción en aluminio de grado aeroespacial y autonomía de 40 horas. El estándar preferido para estaciones de trabajo de alto rendimiento.
+          </p>
+          <div class="flex gap-8 border-t border-outline-variant/15 pt-6">
+            <div>
+              <span class="block text-xs text-outline uppercase font-bold mb-1">Mejor Precio</span>
+              <span class="text-2xl font-bold text-primary">$84.50 <span class="text-sm font-normal text-outline">USD</span></span>
+            </div>
+            <div>
+              <span class="block text-xs text-outline uppercase font-bold mb-1">Disponibilidad</span>
+              <span class="text-2xl font-bold text-secondary">850 <span class="text-sm font-normal text-outline">uds</span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Wholesaler Table -->
+      <div class="space-y-4">
+        <div class="grid grid-cols-12 px-8 py-3 text-xs font-bold uppercase tracking-widest text-outline">
+          <div class="col-span-4">Distribuidor</div>
+          <div class="col-span-2 text-right">Precio Unitario</div>
+          <div class="col-span-2 text-center">Stock</div>
+          <div class="col-span-2 text-center">Entrega</div>
+          <div class="col-span-2"></div>
+        </div>
+
+        {wholesalers.map((w) => (
+          <div class="grid grid-cols-12 items-center bg-surface-container-lowest p-8 rounded-xl hover:shadow-[0px_0px_40px_rgba(26,28,30,0.06)] transition-all group">
+            <div class="col-span-4 flex items-center gap-4">
+              <div class="w-12 h-12 bg-surface-container-high rounded-lg flex items-center justify-center font-bold text-primary">
+                {w.initial}
+              </div>
+              <div>
+                <h4 class="font-bold text-on-surface">{w.name}</h4>
+                <span class={`text-xs font-medium ${w.badgeClass}`}>{w.badge}</span>
+              </div>
+            </div>
+            <div class="col-span-2 text-right">
+              <span class="text-xl font-bold text-primary">{w.price}</span>
+              <p class="text-[10px] text-outline">{w.minOrder}</p>
+            </div>
+            <div class="col-span-2 text-center">
+              <span class={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${w.stockClass}`}>
+                {w.stock}
+              </span>
+            </div>
+            <div class="col-span-2 text-center">
+              <div class="flex flex-col items-center">
+                <span class="text-sm font-semibold">{w.delivery}</span>
+                <span class="text-[10px] text-outline">{w.deliveryNote}</span>
+              </div>
+            </div>
+            <div class="col-span-2 text-right">
+              <button class="bg-gradient-to-br from-primary to-primary-container text-white px-6 py-3 rounded-xl font-bold text-sm w-full hover:scale-105 transition-transform active:scale-95">
+                Agregar al Carrito
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <!-- Related Products -->
+      <div class="pt-10">
+        <h3 class="text-2xl font-bold mb-6">Productos Relacionados</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+          <!-- Wide card -->
+          <div class="md:col-span-2 bg-surface-container-lowest p-6 rounded-xl flex items-center justify-between group cursor-pointer">
+            <div>
+              <h5 class="font-bold text-lg mb-1">{relatedProducts[0].name}</h5>
+              <p class="text-sm text-outline mb-4">{relatedProducts[0].description}</p>
+              <span class="text-xl font-bold text-primary">{relatedProducts[0].price}</span>
+            </div>
+            <img
+              src={relatedProducts[0].imgSrc}
+              alt={relatedProducts[0].imgAlt}
+              class="w-32 h-32 object-contain group-hover:scale-110 transition-transform"
+            />
+          </div>
+
+          <!-- Narrow cards -->
+          {relatedProducts.slice(1).map((p) => (
+            <div class="bg-surface-container-lowest p-6 rounded-xl group cursor-pointer">
+              <img
+                src={p.imgSrc}
+                alt={p.imgAlt}
+                class="w-full h-32 object-contain mb-4 group-hover:-translate-y-2 transition-transform"
+              />
+              <h5 class="font-bold text-sm mb-1">{p.name}</h5>
+              <span class="text-lg font-bold text-primary">{p.price}</span>
+            </div>
+          ))}
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</DashboardLayout>
