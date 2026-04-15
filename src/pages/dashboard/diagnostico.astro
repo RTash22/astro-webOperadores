@@ -1,0 +1,81 @@
+---
+import { supabase } from '../../db/supabase.js';
+
+// Test each table and capture errors
+const tables = [
+  'mayoristas',
+  'clientes', 
+  'catalogo_productos',
+  'solicitudes_cotizacion',
+  'cotizaciones_downlabs',
+  'pedidos_creditos',
+];
+
+const results: any[] = [];
+
+for (const table of tables) {
+  const { data, error, count } = await supabase
+    .from(table)
+    .select('*', { count: 'exact' })
+    .limit(2);
+  
+  results.push({
+    table,
+    success: !error,
+    error: error?.message || null,
+    errorCode: error?.code || null,
+    count: data?.length ?? 0,
+    sample: data?.[0] ? JSON.stringify(data[0]).slice(0, 200) : null,
+  });
+}
+
+// Check env vars
+const envUrl = import.meta.env.SUPABASE_URL;
+const envKey = import.meta.env.SUPABASE_KEY;
+---
+
+<html>
+<head><title>Diagnóstico Supabase</title></head>
+<body style="font-family: monospace; padding: 40px; background: #1a1a2e; color: #eee;">
+  <h1 style="color: #4fc3f7;">🔍 Diagnóstico Supabase</h1>
+  
+  <h2>Variables de Entorno</h2>
+  <p><strong>SUPABASE_URL:</strong> {envUrl ? `✅ ${envUrl}` : '❌ NO DEFINIDA'}</p>
+  <p><strong>SUPABASE_KEY:</strong> {envKey ? `✅ ${envKey.slice(0, 20)}...` : '❌ NO DEFINIDA'}</p>
+
+  <h2>Estado de Tablas</h2>
+  <table style="border-collapse: collapse; width: 100%;">
+    <thead>
+      <tr style="border-bottom: 2px solid #4fc3f7;">
+        <th style="padding: 10px; text-align: left;">Tabla</th>
+        <th style="padding: 10px;">Estado</th>
+        <th style="padding: 10px;">Filas</th>
+        <th style="padding: 10px; text-align: left;">Error</th>
+        <th style="padding: 10px; text-align: left;">Muestra</th>
+      </tr>
+    </thead>
+    <tbody>
+      {results.map((r) => (
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 10px; font-weight: bold;">{r.table}</td>
+          <td style="padding: 10px; text-align: center;">{r.success ? '✅' : '❌'}</td>
+          <td style="padding: 10px; text-align: center;">{r.count}</td>
+          <td style="padding: 10px; color: #ef5350;">{r.error || '—'}</td>
+          <td style="padding: 10px; color: #81c784; font-size: 11px; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{r.sample || '—'}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+
+  <h2 style="margin-top: 40px;">Si ves errores de permisos (RLS)</h2>
+  <p>Ejecuta esto en el SQL Editor de Supabase para desactivar RLS en todas las tablas:</p>
+  <pre style="background: #0d1117; padding: 20px; border-radius: 8px; overflow-x: auto; color: #7ee787;">
+ALTER TABLE mayoristas DISABLE ROW LEVEL SECURITY;
+ALTER TABLE clientes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE catalogo_productos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE solicitudes_cotizacion DISABLE ROW LEVEL SECURITY;
+ALTER TABLE cotizaciones_downlabs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE pedidos_creditos DISABLE ROW LEVEL SECURITY;
+  </pre>
+</body>
+</html>

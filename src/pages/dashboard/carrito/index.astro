@@ -1,205 +1,276 @@
 ---
 import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import { supabase } from '../../../db/supabase.js';
 
-const wholesalerOrders = [
-  {
-    id: 'WH-7721-B',
-    wholesaler: 'Global Logistics Corp',
-    icon: 'factory',
-    iconColor: 'text-primary',
-    iconBg: 'bg-primary/10',
-    products: [
-      {
-        name: 'Precision X1 Smartwatch',
-        sku: 'SKU: PW-102-BL',
-        price: '$124.50',
-        qty: 12,
-        subtotal: '$1,494.00',
-        statusLabel: 'Por confirmar',
-        statusClass: 'bg-surface-container-highest text-on-surface-variant',
-        statusIcon: 'pending',
-        imgSrc: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBKWeTABV3q0BlRp33H-DmkKcHLS0glaqStr0kHrkNj2Bv_Ce7U30dNp9yWwlUazF7dpYXnyOWhAHC1-Rvx3R34A_NMslpR5mTmuvIlskxQ_Dz24UTGQAmJe7wV82nNJ0pZgOpfqXQK2p-4CULet2Pcq07KmwVY7l1YgSyzWNRHpEM6hBCRzHC5soDXqK0DIeRSePl54q-5HKeFdYNNM_KAtqstiFJxXCvL-Rv-b4kSZWwxFl6Tf-X0ibLIXIUvUso0mNTHWfUx7Qg',
-      },
-      {
-        name: 'AudioPro Studio Gen 2',
-        sku: 'SKU: AU-882-SG',
-        price: '$89.00',
-        qty: 5,
-        subtotal: '$445.00',
-        statusLabel: 'Disponible',
-        statusClass: 'bg-secondary-container text-on-secondary-container',
-        statusIcon: 'check_circle',
-        imgSrc: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCvBgB7yEHsotGDu1E2Ag3ub4VsfVsd3kY45Hps14DSS_6ynwDcb9ih9X-f2zYkKqh-0myqjOayT9PSXC8DMmYi3RQm8ehxk81DH99Q5JauctdmB0KjnD5EgZjF-p5dnqFmplnv0edAJDuz8o-gPJnuMb9kS2n1JzQZV2P0w0pSyPx5aQWIVUG6gzCkKH_J6E-BXBW6mYn1K7TDvHTyxqKZPGteAfI41jj3GfcIktcG_z8mon9lpnBVBAeXntN1k4U_YsQptnSa1DI',
-      },
-    ],
-  },
-  {
-    id: 'WH-0091-Z',
-    wholesaler: 'Zenith Distribution',
-    icon: 'inventory',
-    iconColor: 'text-tertiary',
-    iconBg: 'bg-tertiary/10',
-    products: [
-      {
-        name: 'Classic Executive Watch',
-        sku: 'SKU: CW-441-LB',
-        price: '$210.00',
-        qty: 20,
-        subtotal: '$4,200.00',
-        statusLabel: 'Stock Bajo',
-        statusClass: 'bg-error-container text-on-error-container',
-        statusIcon: 'error',
-        imgSrc: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCemFim3zk5Ft3FhO4x4AKn_gNZqS0sodwU3KVuFtG98zQI-p94uzFplzAle9MpMXz9izwYBBM3jQFSR47NE6DahjJKrAUvEqOaOrfmexRrTw4EoIk0Z6TNTMnJpYFjZJ2D2NSF69WGpnBP9XjEO9KMFPbBoXnIiP5tWdZdB15HdWO9xIplW9U83raipA_3a0en4qaUTlVtjbUP54QYD9fB26LlnnsXLYnyK_kJR5a-b4cqCojxAbHmgfb0M-t-ABSGDpYgCNlIX_0',
-      },
-    ],
-  },
-];
+// Fetch solicitudes that have cotizaciones (en proceso or cotizada)
+const { data: solicitudes } = await supabase
+  .from('solicitudes_cotizacion')
+  .select(`
+    id_solicitud, descripcion_articulo, nivel_urgencia, estado_solicitud, created_at,
+    clientes ( nombre_empresa, correo_contacto, telefono_contacto )
+  `)
+  .in('estado_solicitud', ['en proceso', 'cotizada', 'respondida'])
+  .order('created_at', { ascending: false });
+
+const allSolicitudes = solicitudes || [];
+
+// Fetch all cotizaciones for these solicitudes
+const solIds = allSolicitudes.map((s: any) => s.id_solicitud);
+let allCotizaciones: any[] = [];
+
+if (solIds.length > 0) {
+  const { data: cots } = await supabase
+    .from('cotizaciones_downlabs')
+    .select(`
+      id_cotizacion, id_solicitud, id_producto, precio_final_cliente, costo_envio,
+      cantidad, estado, notas_operador, created_at,
+      catalogo_productos (
+        nombre_articulo, categoria, precio_mayorista, imagen_url,
+        mayoristas ( nombre_empresa, nivel_confianza )
+      )
+    `)
+    .in('id_solicitud', solIds)
+    .order('created_at', { ascending: false });
+  allCotizaciones = cots || [];
+}
+
+// Group cotizaciones by solicitud
+const cotsBySol: Record<string, any[]> = {};
+for (const c of allCotizaciones) {
+  if (!cotsBySol[c.id_solicitud]) cotsBySol[c.id_solicitud] = [];
+  cotsBySol[c.id_solicitud].push(c);
+}
+
+// Build enriched list
+const enrichedSolicitudes = allSolicitudes.map((sol: any) => {
+  const items = cotsBySol[sol.id_solicitud] || [];
+  const totalPrice = items.reduce((s: number, i: any) => s + (i.precio_final_cliente || 0), 0);
+  const totalUnits = items.reduce((s: number, i: any) => s + (i.cantidad || 1), 0);
+  const isFinalized = items.length > 0 && items[0].estado === 'enviada';
+  return { ...sol, _items: items, _totalPrice: totalPrice, _totalUnits: totalUnits, _isFinalized: isFinalized };
+});
+
+const enProceso = enrichedSolicitudes.filter((s: any) => !s._isFinalized);
+const enviadas = enrichedSolicitudes.filter((s: any) => s._isFinalized);
+
+function formatMoney(n: number) {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2 });
+}
+
+function formatDate(d: string) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+const grandTotal = enrichedSolicitudes.reduce((s: number, sol: any) => s + sol._totalPrice, 0);
 ---
 
 <DashboardLayout title="Carrito · Operadores">
-  <div class="p-4 md:p-10 max-w-7xl mx-auto">
+  <div class="p-6 md:p-8 max-w-6xl mx-auto">
 
     <!-- Header -->
-    <div class="mb-10">
-      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div class="mb-8">
+      <nav class="flex items-center gap-2 text-sm text-outline mb-3">
+        <a href="/dashboard" class="hover:text-primary transition-colors">Dashboard</a>
+        <span class="material-symbols-outlined text-xs">chevron_right</span>
+        <span class="text-primary font-medium">Cotizaciones Activas</span>
+      </nav>
+      <div class="flex items-end justify-between gap-4">
         <div>
-          <nav class="flex items-center gap-2 text-sm text-outline mb-4">
-            <span>Marketplace</span>
-            <span class="material-symbols-outlined text-xs">chevron_right</span>
-            <span class="text-primary font-medium">Carrito</span>
-          </nav>
-          <h1 class="font-headline text-4xl font-extrabold text-on-surface tracking-tight">Carrito del Pedido</h1>
-          <p class="text-on-surface-variant mt-2 max-w-2xl">Administra tus productos por mayorista antes de enviar la solicitud de cotización.</p>
+          <h1 class="font-headline text-3xl font-extrabold text-on-surface tracking-tight">Cotizaciones Activas</h1>
+          <p class="text-on-surface-variant mt-1">{enrichedSolicitudes.length} cotización(es) en curso · Total estimado: {formatMoney(grandTotal)}</p>
         </div>
-        <a
-          href="/dashboard/marketplace"
-          class="px-8 py-3 rounded-xl bg-surface-container-high text-primary font-semibold hover:bg-surface-container-highest transition-colors flex items-center gap-2 self-start md:self-auto"
-        >
-          <span class="material-symbols-outlined text-sm">arrow_back</span>
-          Seguir Comprando
+        <a href="/dashboard/solicitudes" class="px-5 py-2.5 rounded-xl bg-primary text-white font-semibold text-sm hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg shadow-primary/20">
+          <span class="material-symbols-outlined text-base">add</span>
+          Nueva Cotización
         </a>
       </div>
     </div>
 
-    <!-- Wholesaler Sections -->
-    <div class="space-y-8">
-      {wholesalerOrders.map((order) => (
-        <section class="bg-surface-container-low rounded-2xl p-6 md:p-8">
-          <div class="flex items-center gap-3 mb-6">
-            <div class={`w-10 h-10 rounded-lg flex items-center justify-center ${order.iconBg}`}>
-              <span class={`material-symbols-outlined ${order.iconColor}`}>{order.icon}</span>
-            </div>
-            <div>
-              <h2 class="text-xl font-bold font-headline">Pedido: {order.wholesaler}</h2>
-              <p class="text-xs text-on-surface-variant">ID Mayorista: {order.id}</p>
-            </div>
-          </div>
-
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-separate border-spacing-y-3">
-              <thead>
-                <tr class="text-on-surface-variant text-sm font-medium uppercase tracking-wider">
-                  <th class="px-4 pb-2">Producto</th>
-                  <th class="px-4 pb-2">Precio</th>
-                  <th class="px-4 pb-2">Cantidad</th>
-                  <th class="px-4 pb-2">Estado</th>
-                  <th class="px-4 pb-2 text-right">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {order.products.map((p) => (
-                  <tr class="bg-surface-container-lowest hover:bg-surface-bright transition-all">
-                    <td class="px-4 py-4 rounded-l-xl">
-                      <div class="flex items-center gap-4">
-                        <div class="w-16 h-16 rounded-lg bg-surface-container-high overflow-hidden flex-shrink-0">
-                          <img src={p.imgSrc} alt={p.name} class="w-full h-full object-cover" />
-                        </div>
-                        <div>
-                          <div class="font-bold text-on-surface">{p.name}</div>
-                          <div class="text-xs text-on-surface-variant">{p.sku}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="px-4 py-4 font-headline font-semibold text-lg text-primary">{p.price}</td>
-                    <td class="px-4 py-4">
-                      <div class="flex items-center bg-surface-container-high rounded-full w-fit px-2">
-                        <button class="p-1 text-primary hover:scale-110 transition-transform">
-                          <span class="material-symbols-outlined">remove</span>
-                        </button>
-                        <input
-                          type="text"
-                          value={p.qty}
-                          class="w-12 bg-transparent border-none text-center font-bold focus:ring-0"
-                        />
-                        <button class="p-1 text-primary hover:scale-110 transition-transform">
-                          <span class="material-symbols-outlined">add</span>
-                        </button>
-                      </div>
-                    </td>
-                    <td class="px-4 py-4">
-                      <span class={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${p.statusClass}`}>
-                        <span class="material-symbols-outlined text-xs">{p.statusIcon}</span>
-                        {p.statusLabel}
-                      </span>
-                    </td>
-                    <td class="px-4 py-4 text-right font-headline font-bold text-lg text-on-surface rounded-r-xl">{p.subtotal}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ))}
-    </div>
-
-    <!-- Footer: Summary + Action -->
-    <div class="mt-12 mb-10 flex flex-col md:flex-row gap-8 items-start md:items-stretch">
-
-      <!-- Order Summary -->
-      <div class="flex-1 p-8 rounded-2xl bg-primary text-white relative overflow-hidden">
-        <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
-        <div class="relative z-10 flex flex-col h-full justify-between">
-          <div>
-            <h3 class="font-headline text-2xl font-bold mb-2">Resumen del Pedido</h3>
-            <p class="text-blue-100/70 text-sm">Los gastos de envío se calcularán en el siguiente paso.</p>
-          </div>
-          <div class="mt-10 space-y-3">
-            <div class="flex justify-between text-blue-100">
-              <span>Subtotal (2 mayoristas)</span>
-              <span class="font-semibold">$6,139.00</span>
-            </div>
-            <div class="flex justify-between text-blue-100">
-              <span>Descuento corporativo</span>
-              <span class="font-semibold text-secondary-fixed">-$150.00</span>
-            </div>
-            <div class="border-t border-white/10 pt-4 mt-4 flex justify-between items-end">
-              <span class="text-lg">Total estimado</span>
-              <span class="font-headline text-4xl font-extrabold tracking-tighter">$5,989.00</span>
-            </div>
-          </div>
+    <!-- Stats -->
+    <div class="grid grid-cols-3 gap-4 mb-8">
+      <div class="bg-surface-container-lowest rounded-xl p-5 flex items-center gap-4">
+        <div class="w-11 h-11 rounded-xl bg-secondary/10 flex items-center justify-center">
+          <span class="material-symbols-outlined text-secondary">edit_note</span>
+        </div>
+        <div>
+          <p class="text-[10px] text-outline font-bold uppercase tracking-widest">En Proceso</p>
+          <p class="font-headline text-2xl font-extrabold text-on-surface">{enProceso.length}</p>
         </div>
       </div>
-
-      <!-- Action -->
-      <div class="w-full md:w-96 flex flex-col gap-4">
-        <a
-          href="/dashboard/carrito/detalles"
-          class="w-full py-5 rounded-xl bg-gradient-to-br from-primary to-primary-container text-white font-extrabold text-lg shadow-xl shadow-primary/20 flex items-center justify-center gap-3 group hover:opacity-95 transition-opacity"
-        >
-          Continuar con los Detalles
-          <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
-        </a>
-        <div class="p-6 rounded-2xl bg-surface-container-high border border-outline-variant/15">
-          <h4 class="font-bold mb-3 flex items-center gap-2">
-            <span class="material-symbols-outlined text-tertiary">security</span>
-            Compra Protegida
-          </h4>
-          <p class="text-xs text-on-surface-variant leading-relaxed">
-            Su transacción está asegurada por el sistema Nexus Direct. Garantizamos la trazabilidad de cada pedido con los mayoristas.
-          </p>
+      <div class="bg-surface-container-lowest rounded-xl p-5 flex items-center gap-4">
+        <div class="w-11 h-11 rounded-xl bg-tertiary/10 flex items-center justify-center">
+          <span class="material-symbols-outlined text-tertiary">send</span>
+        </div>
+        <div>
+          <p class="text-[10px] text-outline font-bold uppercase tracking-widest">Enviadas</p>
+          <p class="font-headline text-2xl font-extrabold text-on-surface">{enviadas.length}</p>
         </div>
       </div>
-
+      <div class="bg-surface-container-lowest rounded-xl p-5 flex items-center gap-4">
+        <div class="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
+          <span class="material-symbols-outlined text-primary">payments</span>
+        </div>
+        <div>
+          <p class="text-[10px] text-outline font-bold uppercase tracking-widest">Valor Total</p>
+          <p class="font-headline text-2xl font-extrabold text-primary">{formatMoney(grandTotal)}</p>
+        </div>
+      </div>
     </div>
+
+    {enrichedSolicitudes.length === 0 ? (
+      <div class="bg-surface-container-lowest rounded-xl px-6 py-16 text-center">
+        <span class="material-symbols-outlined text-6xl block mb-4 text-outline/15">receipt_long</span>
+        <p class="text-lg font-semibold text-on-surface">No hay cotizaciones activas</p>
+        <p class="text-sm text-outline mt-1 mb-6">Ve a <a href="/dashboard/solicitudes" class="text-primary font-bold hover:underline">Solicitudes</a> para atender peticiones de clientes y armar cotizaciones.</p>
+      </div>
+    ) : (
+      <div class="space-y-6">
+        {enrichedSolicitudes.map((sol: any) => {
+          const urgColor = sol.nivel_urgencia?.toLowerCase() === 'alta' ? 'text-error' : sol.nivel_urgencia?.toLowerCase() === 'media' ? 'text-tertiary' : 'text-outline';
+          return (
+            <div class={`bg-surface-container-lowest rounded-2xl overflow-hidden border ${sol._isFinalized ? 'border-tertiary/20' : 'border-outline-variant/10'}`}>
+              {/* Header */}
+              <div class={`px-6 py-4 flex items-center justify-between gap-4 ${sol._isFinalized ? 'bg-tertiary/5' : 'bg-surface-container-low/50'}`}>
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-primary-fixed text-on-primary-fixed">
+                    {(sol.clientes?.nombre_empresa || '?')[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <h3 class="font-bold text-on-surface">{sol.clientes?.nombre_empresa || 'Sin empresa'}</h3>
+                      <span class={`text-[10px] font-bold uppercase ${urgColor}`}>● {sol.nivel_urgencia || '—'}</span>
+                    </div>
+                    <p class="text-xs text-on-surface-variant line-clamp-1">{sol.descripcion_articulo || '—'}</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  {sol._isFinalized ? (
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-tertiary/10 text-tertiary">
+                      <span class="material-symbols-outlined text-xs">send</span>
+                      Enviada · Esperando proveedores
+                    </span>
+                  ) : (
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-secondary/10 text-secondary">
+                      <span class="material-symbols-outlined text-xs">edit_note</span>
+                      En proceso
+                    </span>
+                  )}
+                  <a href="/dashboard/solicitudes" class="p-2 rounded-lg hover:bg-surface-container-high transition-colors text-outline hover:text-primary" title="Editar en Solicitudes">
+                    <span class="material-symbols-outlined text-base">open_in_new</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Products table */}
+              <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                  <thead>
+                    <tr class="text-[10px] text-outline font-bold uppercase tracking-widest border-b border-outline-variant/10">
+                      <th class="px-6 py-3">Producto</th>
+                      <th class="px-4 py-3 text-center">Cantidad</th>
+                      <th class="px-4 py-3 text-right">P. Unitario</th>
+                      <th class="px-4 py-3 text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-outline-variant/5">
+                    {sol._items.map((item: any) => {
+                      const prod = item.catalogo_productos;
+                      const qty = item.cantidad || 1;
+                      const total = item.precio_final_cliente || 0;
+                      const unitPrice = qty > 0 ? total / qty : total;
+                      return (
+                        <tr class="hover:bg-surface-container-low/30 transition-colors">
+                          <td class="px-6 py-3">
+                            <div class="flex items-center gap-3">
+                              {prod?.imagen_url ? (
+                                <img src={prod.imagen_url} alt="" class="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+                              ) : (
+                                <div class="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center flex-shrink-0">
+                                  <span class="material-symbols-outlined text-primary text-sm">inventory_2</span>
+                                </div>
+                              )}
+                              <div>
+                                <p class="text-sm font-bold text-on-surface">{prod?.nombre_articulo || '—'}</p>
+                                <p class="text-[10px] text-outline">{prod?.mayoristas?.nombre_empresa || '—'} · {prod?.categoria || ''}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td class="px-4 py-3 text-center">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface">{qty}</span>
+                          </td>
+                          <td class="px-4 py-3 text-right text-sm text-on-surface-variant">{formatMoney(unitPrice)}</td>
+                          <td class="px-4 py-3 text-right text-sm font-bold text-primary">{formatMoney(total)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer */}
+              <div class={`px-6 py-4 flex items-center justify-between ${sol._isFinalized ? 'bg-tertiary/5' : 'bg-surface-container-low/30'}`}>
+                <div class="flex items-center gap-6 text-xs text-outline">
+                  <span>{sol._items.length} producto(s)</span>
+                  <span>{sol._totalUnits} unidades</span>
+                  <span>{formatDate(sol.created_at)}</span>
+                </div>
+                <div class="flex items-center gap-4">
+                  <span class="font-headline text-xl font-extrabold text-primary">{formatMoney(sol._totalPrice)}</span>
+                  {!sol._isFinalized && (
+                    <button
+                      class="btn-finalize-cart px-5 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-br from-secondary to-secondary-container text-white hover:opacity-95 transition-all active:scale-[0.98] flex items-center gap-2 shadow-lg shadow-secondary/20"
+                      data-sol-id={sol.id_solicitud}
+                    >
+                      <span class="material-symbols-outlined text-base">send</span>
+                      Terminar Cotización
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
   </div>
+
+  <script>
+    // Finalize from cart page
+    document.querySelectorAll('.btn-finalize-cart').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const el = btn as HTMLElement;
+        const solId = el.dataset.solId;
+        if (!solId) return;
+
+        if (!confirm('¿Enviar esta cotización a los proveedores?\n\nEl cliente será notificado que su solicitud está siendo cotizada.')) return;
+
+        el.innerHTML = '<span class="material-symbols-outlined text-base animate-spin">progress_activity</span> Enviando...';
+        (el as any).disabled = true;
+
+        try {
+          const res = await fetch('/api/cotizaciones', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_solicitud: solId }),
+          });
+          const json = await res.json();
+
+          if (!res.ok) {
+            alert(json.error || 'Error al finalizar');
+            el.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Terminar Cotización';
+            (el as any).disabled = false;
+            return;
+          }
+
+          alert('✅ ' + (json.message || 'Cotización enviada exitosamente.'));
+          window.location.reload();
+        } catch (e) {
+          alert('Error de conexión');
+          el.innerHTML = '<span class="material-symbols-outlined text-base">send</span> Terminar Cotización';
+          (el as any).disabled = false;
+        }
+      });
+    });
+  </script>
 </DashboardLayout>

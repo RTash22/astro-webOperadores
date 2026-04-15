@@ -1,35 +1,84 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { supabase } from '../../db/supabase.js';
 
-const recentOrders = [
-  {
-    id: '#CP-9402',
-    initials: 'NL',
-    client: 'Nexus Logistics',
-    amount: '$12,450.00',
-    status: 'Processing',
-    statusClass: 'bg-secondary-container/30 text-secondary',
-    avatarClass: 'bg-secondary-fixed text-on-secondary-fixed',
-  },
-  {
-    id: '#CP-9398',
-    initials: 'GV',
-    client: 'Global Ventures',
-    amount: '$8,210.50',
-    status: 'Delayed',
-    statusClass: 'bg-error-container/30 text-error',
-    avatarClass: 'bg-tertiary-fixed text-on-tertiary-fixed',
-  },
-  {
-    id: '#CP-9385',
-    initials: 'AS',
-    client: 'Apex Solutions',
-    amount: '$45,100.00',
-    status: 'Delivered',
-    statusClass: 'bg-surface-container-highest text-on-surface-variant',
-    avatarClass: 'bg-primary-fixed text-on-primary-fixed',
-  },
-];
+// Fetch real counts from Supabase
+const { count: totalSolicitudes } = await supabase
+  .from('solicitudes_cotizacion')
+  .select('*', { count: 'exact', head: true });
+
+const { count: solicitudesPendientes } = await supabase
+  .from('solicitudes_cotizacion')
+  .select('*', { count: 'exact', head: true })
+  .eq('estado_solicitud', 'pendiente');
+
+const { count: totalCotizaciones } = await supabase
+  .from('cotizaciones_downlabs')
+  .select('*', { count: 'exact', head: true });
+
+const { count: totalPedidos } = await supabase
+  .from('pedidos_creditos')
+  .select('*', { count: 'exact', head: true });
+
+// Fetch recent solicitudes with client info
+const { data: recentSolicitudes } = await supabase
+  .from('solicitudes_cotizacion')
+  .select(`
+    id_solicitud,
+    descripcion_articulo,
+    nivel_urgencia,
+    estado_solicitud,
+    created_at,
+    clientes (
+      id_cliente,
+      nombre_empresa,
+      correo_contacto,
+      telefono_contacto
+    )
+  `)
+  .order('created_at', { ascending: false })
+  .limit(5);
+
+const solicitudes = recentSolicitudes || [];
+
+// Status badge styles
+function getStatusStyle(status: string) {
+  switch (status?.toLowerCase()) {
+    case 'pendiente':
+      return { class: 'bg-error-container/30 text-error', icon: 'pending' };
+    case 'atendida':
+    case 'en proceso':
+      return { class: 'bg-secondary-container/30 text-secondary', icon: 'autorenew' };
+    case 'completada':
+      return { class: 'bg-surface-container-highest text-on-surface-variant', icon: 'check_circle' };
+    default:
+      return { class: 'bg-surface-container-highest text-on-surface-variant', icon: 'help' };
+  }
+}
+
+function getUrgencyStyle(urgency: string) {
+  switch (urgency?.toLowerCase()) {
+    case 'alta':
+      return 'text-error font-bold';
+    case 'media':
+      return 'text-tertiary font-semibold';
+    case 'baja':
+      return 'text-outline font-medium';
+    default:
+      return 'text-outline';
+  }
+}
+
+function timeAgo(dateStr: string) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `hace ${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `hace ${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  return `hace ${days}d`;
+}
 ---
 
 <DashboardLayout title="Dashboard · Operadores">
@@ -37,65 +86,71 @@ const recentOrders = [
 
     <!-- Hero Header -->
     <section>
-      <h2 class="font-headline text-3xl font-extrabold text-on-surface tracking-tight">Operations Overview</h2>
-      <p class="text-on-surface-variant mt-1 font-medium">Real-time status of your logistics network and order fulfillment.</p>
+      <h2 class="font-headline text-3xl font-extrabold text-on-surface tracking-tight">Panel de Operaciones</h2>
+      <p class="text-on-surface-variant mt-1 font-medium">Estado en tiempo real de solicitudes, cotizaciones y pedidos.</p>
     </section>
 
     <!-- Bento Grid Stats -->
     <div class="grid grid-cols-12 gap-6">
 
-      <!-- Total Orders -->
-      <div class="col-span-12 md:col-span-4 bg-surface-container-lowest p-6 rounded-xl flex flex-col justify-between group hover:bg-surface-bright transition-all duration-300">
+      <!-- Total Solicitudes -->
+      <div class="col-span-12 md:col-span-3 bg-surface-container-lowest p-6 rounded-xl flex flex-col justify-between group hover:bg-surface-bright transition-all duration-300">
         <div class="flex justify-between items-start">
           <div class="p-3 bg-primary/5 rounded-xl">
-            <span class="material-symbols-outlined text-primary">package_2</span>
+            <span class="material-symbols-outlined text-primary">mail</span>
           </div>
-          <span class="flex items-center gap-1 text-secondary text-xs font-bold bg-secondary/10 px-2 py-1 rounded-full">
-            <span class="material-symbols-outlined text-xs">trending_up</span>
-            +12.5%
-          </span>
         </div>
         <div class="mt-8">
-          <p class="text-outline font-semibold text-xs uppercase tracking-widest">Total Orders</p>
-          <h3 class="font-headline text-4xl font-extrabold text-on-surface mt-1">2,842</h3>
-          <p class="text-[11px] text-on-surface-variant mt-2">Processed in the last 30 days</p>
+          <p class="text-outline font-semibold text-xs uppercase tracking-widest">Solicitudes</p>
+          <h3 class="font-headline text-4xl font-extrabold text-on-surface mt-1">{totalSolicitudes ?? 0}</h3>
+          <p class="text-[11px] text-on-surface-variant mt-2">Total de solicitudes recibidas</p>
         </div>
       </div>
 
-      <!-- Pending Orders -->
-      <div class="col-span-12 md:col-span-4 bg-surface-container-lowest p-6 rounded-xl flex flex-col justify-between group hover:bg-surface-bright transition-all duration-300">
+      <!-- Pendientes -->
+      <div class="col-span-12 md:col-span-3 bg-surface-container-lowest p-6 rounded-xl flex flex-col justify-between group hover:bg-surface-bright transition-all duration-300">
         <div class="flex justify-between items-start">
           <div class="p-3 bg-error/5 rounded-xl">
             <span class="material-symbols-outlined text-error">priority_high</span>
           </div>
-          <span class="flex items-center gap-1 text-error text-xs font-bold bg-error/10 px-2 py-1 rounded-full">
-            Critical
-          </span>
+          {(solicitudesPendientes ?? 0) > 0 && (
+            <span class="flex items-center gap-1 text-error text-xs font-bold bg-error/10 px-2 py-1 rounded-full">
+              Requiere atención
+            </span>
+          )}
         </div>
         <div class="mt-8">
-          <p class="text-outline font-semibold text-xs uppercase tracking-widest">Pending Orders</p>
-          <h3 class="font-headline text-4xl font-extrabold text-on-surface mt-1">48</h3>
-          <div class="flex gap-2 mt-3">
-            <div class="h-1.5 flex-1 bg-error rounded-full"></div>
-            <div class="h-1.5 flex-1 bg-tertiary-container rounded-full opacity-40"></div>
-            <div class="h-1.5 flex-1 bg-outline-variant rounded-full opacity-40"></div>
-          </div>
-          <p class="text-[11px] text-on-surface-variant mt-2">12 require immediate attention</p>
+          <p class="text-outline font-semibold text-xs uppercase tracking-widest">Pendientes</p>
+          <h3 class="font-headline text-4xl font-extrabold text-on-surface mt-1">{solicitudesPendientes ?? 0}</h3>
+          <p class="text-[11px] text-on-surface-variant mt-2">Solicitudes sin atender</p>
         </div>
       </div>
 
-      <!-- Shipments in Transit -->
-      <div class="col-span-12 md:col-span-4 bg-surface-container-lowest p-6 rounded-xl flex flex-col justify-between group hover:bg-surface-bright transition-all duration-300">
+      <!-- Cotizaciones -->
+      <div class="col-span-12 md:col-span-3 bg-surface-container-lowest p-6 rounded-xl flex flex-col justify-between group hover:bg-surface-bright transition-all duration-300">
         <div class="flex justify-between items-start">
           <div class="p-3 bg-secondary/5 rounded-xl">
-            <span class="material-symbols-outlined text-secondary">local_shipping</span>
+            <span class="material-symbols-outlined text-secondary">receipt_long</span>
           </div>
-          <button class="text-primary text-xs font-bold hover:underline">Track All</button>
         </div>
         <div class="mt-8">
-          <p class="text-outline font-semibold text-xs uppercase tracking-widest">In Transit</p>
-          <h3 class="font-headline text-4xl font-extrabold text-on-surface mt-1">156</h3>
-          <p class="text-[11px] text-on-surface-variant mt-2">85% arriving within schedule</p>
+          <p class="text-outline font-semibold text-xs uppercase tracking-widest">Cotizaciones</p>
+          <h3 class="font-headline text-4xl font-extrabold text-on-surface mt-1">{totalCotizaciones ?? 0}</h3>
+          <p class="text-[11px] text-on-surface-variant mt-2">Cotizaciones generadas</p>
+        </div>
+      </div>
+
+      <!-- Pedidos -->
+      <div class="col-span-12 md:col-span-3 bg-surface-container-lowest p-6 rounded-xl flex flex-col justify-between group hover:bg-surface-bright transition-all duration-300">
+        <div class="flex justify-between items-start">
+          <div class="p-3 bg-tertiary/5 rounded-xl">
+            <span class="material-symbols-outlined text-tertiary">package_2</span>
+          </div>
+        </div>
+        <div class="mt-8">
+          <p class="text-outline font-semibold text-xs uppercase tracking-widest">Pedidos</p>
+          <h3 class="font-headline text-4xl font-extrabold text-on-surface mt-1">{totalPedidos ?? 0}</h3>
+          <p class="text-[11px] text-on-surface-variant mt-2">Pedidos generados</p>
         </div>
       </div>
 
@@ -104,110 +159,108 @@ const recentOrders = [
     <!-- Middle Section -->
     <div class="grid grid-cols-12 gap-6">
 
-      <!-- Recent Orders Table -->
+      <!-- Recent Solicitudes Table -->
       <div class="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl p-1 overflow-hidden">
         <div class="p-6 flex justify-between items-center">
-          <h4 class="font-headline text-xl font-bold text-on-surface">Recent Orders</h4>
-          <button class="text-sm font-semibold text-primary-container bg-primary/5 px-4 py-2 rounded-lg hover:bg-primary/10 transition-colors">View All Orders</button>
+          <h4 class="font-headline text-xl font-bold text-on-surface">Solicitudes Recientes</h4>
+          <a href="/dashboard/solicitudes" class="text-sm font-semibold text-primary-container bg-primary/5 px-4 py-2 rounded-lg hover:bg-primary/10 transition-colors">Ver Todas</a>
         </div>
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="bg-surface-container-low text-outline font-semibold text-[11px] uppercase tracking-widest">
-              <th class="px-6 py-4">Order ID</th>
-              <th class="px-6 py-4">Client</th>
-              <th class="px-6 py-4">Amount</th>
-              <th class="px-6 py-4">Status</th>
-              <th class="px-6 py-4 text-right">Action</th>
+              <th class="px-6 py-4">Cliente</th>
+              <th class="px-6 py-4">Artículo</th>
+              <th class="px-6 py-4">Urgencia</th>
+              <th class="px-6 py-4">Estado</th>
+              <th class="px-6 py-4 text-right">Acción</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-outline-variant/10">
-            {recentOrders.map((order) => (
-              <tr class="hover:bg-surface-container-low/50 transition-colors group">
-                <td class="px-6 py-5 text-sm font-bold text-primary">{order.id}</td>
-                <td class="px-6 py-5">
-                  <div class="flex items-center gap-3">
-                    <div class={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${order.avatarClass}`}>
-                      {order.initials}
-                    </div>
-                    <span class="text-sm font-medium text-on-surface">{order.client}</span>
-                  </div>
-                </td>
-                <td class="px-6 py-5 text-sm font-semibold text-on-surface">{order.amount}</td>
-                <td class="px-6 py-5">
-                  <span class={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${order.statusClass}`}>
-                    {order.status}
-                  </span>
-                </td>
-                <td class="px-6 py-5 text-right">
-                  <button class="p-2 rounded-lg hover:bg-primary/5 text-outline group-hover:text-primary transition-all">
-                    <span class="material-symbols-outlined">open_in_new</span>
-                  </button>
+            {solicitudes.length === 0 ? (
+              <tr>
+                <td colspan="5" class="px-6 py-12 text-center text-outline">
+                  <span class="material-symbols-outlined text-4xl block mb-2 opacity-30">inbox</span>
+                  No hay solicitudes aún. Cuando un cliente envíe una petición, aparecerá aquí.
                 </td>
               </tr>
-            ))}
+            ) : (
+              solicitudes.map((sol: any) => {
+                const status = getStatusStyle(sol.estado_solicitud);
+                return (
+                  <tr class="hover:bg-surface-container-low/50 transition-colors group">
+                    <td class="px-6 py-5">
+                      <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs bg-primary-fixed text-on-primary-fixed">
+                          {(sol.clientes?.nombre_empresa || '?')[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <span class="text-sm font-medium text-on-surface block">{sol.clientes?.nombre_empresa || 'Sin empresa'}</span>
+                          <span class="text-[10px] text-outline">{timeAgo(sol.created_at)}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-6 py-5 text-sm text-on-surface-variant max-w-[200px] truncate">{sol.descripcion_articulo || '—'}</td>
+                    <td class="px-6 py-5">
+                      <span class={`text-xs uppercase tracking-wider ${getUrgencyStyle(sol.nivel_urgencia)}`}>{sol.nivel_urgencia || '—'}</span>
+                    </td>
+                    <td class="px-6 py-5">
+                      <span class={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1 ${status.class}`}>
+                        <span class="material-symbols-outlined text-xs">{status.icon}</span>
+                        {sol.estado_solicitud || 'sin estado'}
+                      </span>
+                    </td>
+                    <td class="px-6 py-5 text-right">
+                      <a href={`/dashboard/solicitudes`} class="p-2 rounded-lg hover:bg-primary/5 text-outline group-hover:text-primary transition-all inline-block">
+                        <span class="material-symbols-outlined">open_in_new</span>
+                      </a>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
 
-      <!-- Right column: Warehouse + Performance -->
+      <!-- Right column: Quick Actions + Performance -->
       <div class="col-span-12 lg:col-span-4 space-y-6">
 
-        <!-- Warehouse Capacity -->
+        <!-- Quick Actions -->
         <div class="bg-surface-container-lowest rounded-xl p-6 relative overflow-hidden">
           <div class="relative z-10">
-            <h4 class="font-headline text-lg font-bold text-on-surface">Warehouse Capacity</h4>
-            <p class="text-xs text-outline font-medium mt-1">Global Distribution Center A</p>
-            <div class="mt-8 flex items-end gap-1 h-32">
-              <div class="w-full bg-primary-container h-[85%] rounded-t-lg"></div>
-              <div class="w-full bg-primary-container/80 h-[70%] rounded-t-lg"></div>
-              <div class="w-full bg-primary-container h-[92%] rounded-t-lg"></div>
-              <div class="w-full bg-primary-container/60 h-[45%] rounded-t-lg"></div>
-              <div class="w-full bg-primary-container h-[78%] rounded-t-lg"></div>
-              <div class="w-full bg-primary-container/90 h-[60%] rounded-t-lg"></div>
-              <div class="w-full bg-primary h-[95%] rounded-t-lg"></div>
-            </div>
-            <div class="mt-6 flex justify-between items-center">
-              <div>
-                <p class="text-[10px] uppercase font-bold text-outline tracking-wider">Current Load</p>
-                <p class="text-xl font-headline font-extrabold text-on-surface">82.4%</p>
-              </div>
-              <div class="text-right">
-                <p class="text-[10px] uppercase font-bold text-outline tracking-wider">Available Space</p>
-                <p class="text-xl font-headline font-extrabold text-secondary">1,240 m³</p>
-              </div>
+            <h4 class="font-headline text-lg font-bold text-on-surface">Acciones Rápidas</h4>
+            <p class="text-xs text-outline font-medium mt-1">Lo que puedes hacer ahora</p>
+            <div class="mt-6 space-y-3">
+              <a href="/dashboard/solicitudes" class="flex items-center gap-3 p-3 bg-primary/5 rounded-xl hover:bg-primary/10 transition-colors group">
+                <span class="material-symbols-outlined text-primary">assignment</span>
+                <span class="text-sm font-semibold text-on-surface group-hover:text-primary">Ver Solicitudes Pendientes</span>
+              </a>
+              <a href="/dashboard/marketplace" class="flex items-center gap-3 p-3 bg-secondary/5 rounded-xl hover:bg-secondary/10 transition-colors group">
+                <span class="material-symbols-outlined text-secondary">search</span>
+                <span class="text-sm font-semibold text-on-surface group-hover:text-secondary">Buscar en Catálogo</span>
+              </a>
+              <a href="/dashboard/pedidos" class="flex items-center gap-3 p-3 bg-tertiary/5 rounded-xl hover:bg-tertiary/10 transition-colors group">
+                <span class="material-symbols-outlined text-tertiary">inventory_2</span>
+                <span class="text-sm font-semibold text-on-surface group-hover:text-tertiary">Mis Pedidos</span>
+              </a>
             </div>
           </div>
           <div class="absolute -bottom-4 -right-4 opacity-5">
-            <span class="material-symbols-outlined text-9xl">warehouse</span>
+            <span class="material-symbols-outlined text-9xl">support_agent</span>
           </div>
         </div>
 
-        <!-- Logistics Performance -->
+        <!-- Operator Info -->
         <div class="bg-primary-container text-on-primary-container rounded-xl p-6 bg-gradient-to-br from-primary to-primary-container shadow-lg">
-          <h4 class="font-headline text-lg font-bold">Performance Index</h4>
-          <div class="mt-6 flex items-center justify-between">
-            <div class="space-y-4">
-              <div>
-                <p class="text-[10px] uppercase font-bold opacity-70 tracking-wider">On-Time Delivery</p>
-                <div class="flex items-center gap-2">
-                  <p class="text-2xl font-headline font-extrabold">98.2%</p>
-                  <span class="material-symbols-outlined text-sm">arrow_upward</span>
-                </div>
-              </div>
-              <div>
-                <p class="text-[10px] uppercase font-bold opacity-70 tracking-wider">Return Rate</p>
-                <p class="text-2xl font-headline font-extrabold">1.4%</p>
-              </div>
+          <h4 class="font-headline text-lg font-bold">Panel del Operador</h4>
+          <div class="mt-6 space-y-4">
+            <div>
+              <p class="text-[10px] uppercase font-bold opacity-70 tracking-wider">Tu Rol</p>
+              <p class="text-lg font-headline font-extrabold">Operador</p>
             </div>
-            <div class="relative w-24 h-24 flex items-center justify-center">
-              <svg class="w-full h-full -rotate-90">
-                <circle class="opacity-20" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-width="8"></circle>
-                <circle cx="48" cy="48" fill="transparent" r="40" stroke="white" stroke-dasharray="251.2" stroke-dashoffset="25" stroke-width="8"></circle>
-              </svg>
-              <div class="absolute inset-0 flex flex-col items-center justify-center">
-                <span class="text-lg font-extrabold">A+</span>
-                <span class="text-[8px] uppercase tracking-tighter opacity-80">Grade</span>
-              </div>
+            <div>
+              <p class="text-[10px] uppercase font-bold opacity-70 tracking-wider">Flujo de Trabajo</p>
+              <p class="text-sm opacity-90 mt-1">Recibe solicitudes → Busca productos → Crea cotizaciones → Genera pedidos</p>
             </div>
           </div>
         </div>
@@ -219,10 +272,10 @@ const recentOrders = [
 
   <!-- Footer -->
   <footer class="px-8 py-6 border-t border-[#c0c7d0]/10 flex justify-between items-center text-[11px] text-outline font-medium uppercase tracking-widest">
-    <div>© 2024 Coperativa Operational Intelligence</div>
+    <div>© 2026 Operadores · Panel de Gestión</div>
     <div class="flex gap-6">
-      <a href="#" class="hover:text-primary transition-colors">Privacy Policy</a>
-      <a href="#" class="hover:text-primary transition-colors">System Health: 99.9%</a>
+      <a href="#" class="hover:text-primary transition-colors">Soporte</a>
     </div>
   </footer>
+
 </DashboardLayout>

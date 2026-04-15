@@ -1,70 +1,73 @@
 ---
 import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import { supabase } from '../../../db/supabase.js';
+
+// Fetch pedidos with cotizacion info
+const { data: pedidos } = await supabase
+  .from('pedidos_creditos')
+  .select(`
+    id_pedido,
+    id_cotizacion,
+    requiere_credito,
+    cargo_financiamiento,
+    monto_total_deuda,
+    estado_pago,
+    fecha_inicio_credito,
+    fecha_vencimiento_credito,
+    requiere_factura,
+    tipo_pago,
+    created_at,
+    cotizaciones_downlabs (
+      id_cotizacion,
+      id_solicitud,
+      id_producto,
+      precio_final_cliente,
+      costo_envio,
+      estado,
+      catalogo_productos (
+        nombre_articulo,
+        categoria
+      )
+    )
+  `)
+  .order('created_at', { ascending: false });
+
+const allPedidos = pedidos || [];
+
+const total = allPedidos.length;
+const pendientesPago = allPedidos.filter((p: any) => p.estado_pago?.toLowerCase() === 'pendiente').length;
+const pagados = allPedidos.filter((p: any) => p.estado_pago?.toLowerCase() === 'pagado').length;
+const creditos = allPedidos.filter((p: any) => p.requiere_credito === true).length;
 
 const stats = [
-  { label: 'Total Pedidos',  value: '12', icon: 'inventory_2',    iconColor: 'text-primary',   bg: 'bg-primary/5'    },
-  { label: 'En Revisión',    value: '4',  icon: 'pending',         iconColor: 'text-outline',   bg: 'bg-outline/5'   },
-  { label: 'Aceptados',      value: '6',  icon: 'check_circle',    iconColor: 'text-secondary', bg: 'bg-secondary/5' },
-  { label: 'Rechazados',     value: '2',  icon: 'cancel',          iconColor: 'text-error',     bg: 'bg-error/5'     },
+  { label: 'Total Pedidos',   value: total,          icon: 'inventory_2',  iconColor: 'text-primary',   bg: 'bg-primary/5'   },
+  { label: 'Pago Pendiente',  value: pendientesPago, icon: 'pending',      iconColor: 'text-error',     bg: 'bg-error/5'     },
+  { label: 'Pagados',         value: pagados,        icon: 'check_circle', iconColor: 'text-secondary', bg: 'bg-secondary/5' },
+  { label: 'Con Crédito',     value: creditos,       icon: 'credit_card',  iconColor: 'text-tertiary',  bg: 'bg-tertiary/5'  },
 ];
 
-const orders = [
-  {
-    id: '#CP-88421',
-    date: '14 Abr 2026',
-    wholesaler: 'Global Logistics Corp',
-    wholesalerId: 'WH-7721-B',
-    products: 'Precision X1 Smartwatch · AudioPro Studio Gen 2',
-    total: '$1,939.00',
-    status: 'En Revisión',
-    statusClass: 'bg-surface-container-highest text-on-surface-variant',
-    statusIcon: 'pending',
-  },
-  {
-    id: '#CP-88415',
-    date: '12 Abr 2026',
-    wholesaler: 'Zenith Distribution',
-    wholesalerId: 'WH-0091-Z',
-    products: 'Classic Executive Watch',
-    total: '$4,200.00',
-    status: 'Aceptado',
-    statusClass: 'bg-secondary-container text-on-secondary-container',
-    statusIcon: 'check_circle',
-  },
-  {
-    id: '#CP-88410',
-    date: '10 Abr 2026',
-    wholesaler: 'TechNova Solutions',
-    wholesalerId: 'WH-3301-T',
-    products: 'Teclado Mecánico Pro Edition RGB x20',
-    total: '$1,690.00',
-    status: 'En Revisión',
-    statusClass: 'bg-surface-container-highest text-on-surface-variant',
-    statusIcon: 'pending',
-  },
-  {
-    id: '#CP-88402',
-    date: '8 Abr 2026',
-    wholesaler: 'Global Import Co.',
-    wholesalerId: 'WH-4490-G',
-    products: 'Mouse Ergonómico MX x50',
-    total: '$2,250.00',
-    status: 'Rechazado',
-    statusClass: 'bg-error-container text-on-error-container',
-    statusIcon: 'cancel',
-  },
-  {
-    id: '#CP-88398',
-    date: '5 Abr 2026',
-    wholesaler: 'Nexus Logistics',
-    wholesalerId: 'WH-2210-N',
-    products: 'Headset Studio x15 · Tablet Grafic Pro x8',
-    total: '$3,947.50',
-    status: 'Aceptado',
-    statusClass: 'bg-secondary-container text-on-secondary-container',
-    statusIcon: 'check_circle',
-  },
-];
+function getPaymentStatusStyle(status: string) {
+  switch (status?.toLowerCase()) {
+    case 'pendiente':
+      return { class: 'bg-surface-container-highest text-on-surface-variant', icon: 'pending' };
+    case 'pagado':
+      return { class: 'bg-secondary-container text-on-secondary-container', icon: 'check_circle' };
+    case 'vencido':
+      return { class: 'bg-error-container text-on-error-container', icon: 'error' };
+    default:
+      return { class: 'bg-surface-container-highest text-on-surface-variant', icon: 'help' };
+  }
+}
+
+function formatDate(dateStr: string) {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatMoney(amount: number | null) {
+  if (amount == null) return '$0.00';
+  return '$' + amount.toLocaleString('en-US', { minimumFractionDigits: 2 });
+}
 ---
 
 <DashboardLayout title="Pedidos · Operadores">
@@ -73,12 +76,12 @@ const orders = [
     <!-- Header -->
     <div>
       <nav class="flex items-center gap-2 text-sm text-outline mb-4">
-        <span>Marketplace</span>
+        <a href="/dashboard" class="hover:text-primary transition-colors">Dashboard</a>
         <span class="material-symbols-outlined text-xs">chevron_right</span>
         <span class="text-primary font-medium">Mis Pedidos</span>
       </nav>
       <h1 class="font-headline text-4xl font-extrabold text-on-surface tracking-tight">Mis Pedidos</h1>
-      <p class="text-on-surface-variant mt-1">Seguimiento de tus solicitudes enviadas a los mayoristas.</p>
+      <p class="text-on-surface-variant mt-1">Seguimiento de pedidos y estado de pago.</p>
     </div>
 
     <!-- Stats -->
@@ -99,48 +102,61 @@ const orders = [
     <!-- Orders Table -->
     <div class="bg-surface-container-lowest rounded-xl overflow-hidden">
       <div class="px-6 py-5 border-b border-outline-variant/10">
-        <h2 class="font-headline text-lg font-bold text-on-surface">Historial de Solicitudes</h2>
+        <h2 class="font-headline text-lg font-bold text-on-surface">Historial de Pedidos</h2>
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-left">
-          <thead>
-            <tr class="bg-surface-container-low text-outline text-xs font-bold uppercase tracking-widest">
-              <th class="px-6 py-4">Pedido</th>
-              <th class="px-6 py-4">Mayorista</th>
-              <th class="px-6 py-4">Productos</th>
-              <th class="px-6 py-4 text-right">Total</th>
-              <th class="px-6 py-4 text-center">Estado</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-outline-variant/10">
-            {orders.map((o) => (
-              <tr class="hover:bg-surface-container-low/50 transition-colors">
-                <td class="px-6 py-5">
-                  <p class="font-bold text-primary text-sm">{o.id}</p>
-                  <p class="text-[11px] text-outline mt-0.5">{o.date}</p>
-                </td>
-                <td class="px-6 py-5">
-                  <p class="font-semibold text-on-surface text-sm">{o.wholesaler}</p>
-                  <p class="text-[11px] text-outline mt-0.5">{o.wholesalerId}</p>
-                </td>
-                <td class="px-6 py-5">
-                  <p class="text-sm text-on-surface-variant max-w-xs truncate">{o.products}</p>
-                </td>
-                <td class="px-6 py-5 text-right">
-                  <p class="font-headline font-bold text-on-surface">{o.total}</p>
-                </td>
-                <td class="px-6 py-5 text-center">
-                  <span class={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${o.statusClass}`}>
-                    <span class="material-symbols-outlined text-xs">{o.statusIcon}</span>
-                    {o.status}
-                  </span>
-                </td>
+      {allPedidos.length === 0 ? (
+        <div class="px-6 py-16 text-center text-outline">
+          <span class="material-symbols-outlined text-6xl block mb-4 opacity-20">inventory_2</span>
+          <p class="text-lg font-semibold">No hay pedidos aún</p>
+          <p class="text-sm mt-1">Cuando se creen pedidos a partir de cotizaciones, aparecerán aquí.</p>
+        </div>
+      ) : (
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="bg-surface-container-low text-outline text-xs font-bold uppercase tracking-widest">
+                <th class="px-6 py-4">Pedido</th>
+                <th class="px-6 py-4">Producto</th>
+                <th class="px-6 py-4 text-right">Monto</th>
+                <th class="px-6 py-4 text-center">Tipo Pago</th>
+                <th class="px-6 py-4 text-center">Estado</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody class="divide-y divide-outline-variant/10">
+              {allPedidos.map((p: any) => {
+                const payStatus = getPaymentStatusStyle(p.estado_pago);
+                const productName = (p.cotizaciones_downlabs as any)?.catalogo_productos?.nombre_articulo || '—';
+                return (
+                  <tr class="hover:bg-surface-container-low/50 transition-colors">
+                    <td class="px-6 py-5">
+                      <p class="font-bold text-primary text-sm">{p.id_pedido?.slice(0, 8) || '—'}</p>
+                      <p class="text-[11px] text-outline mt-0.5">{formatDate(p.created_at)}</p>
+                    </td>
+                    <td class="px-6 py-5">
+                      <p class="text-sm font-medium text-on-surface">{productName}</p>
+                    </td>
+                    <td class="px-6 py-5 text-right">
+                      <p class="font-headline font-bold text-on-surface">{formatMoney(p.monto_total_deuda)}</p>
+                    </td>
+                    <td class="px-6 py-5 text-center">
+                      <span class="text-sm font-medium text-on-surface-variant">
+                        {p.requiere_credito ? '💳 Crédito' : (p.tipo_pago || 'Contado')}
+                      </span>
+                    </td>
+                    <td class="px-6 py-5 text-center">
+                      <span class={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${payStatus.class}`}>
+                        <span class="material-symbols-outlined text-xs">{payStatus.icon}</span>
+                        {p.estado_pago || 'sin estado'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
 
   </div>

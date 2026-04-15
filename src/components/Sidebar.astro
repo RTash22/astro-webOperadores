@@ -1,9 +1,13 @@
 ---
+const currentPath = Astro.url.pathname;
 const navItems = [
-  { icon: 'dashboard',       label: 'Dashboard',      href: '/dashboard', active: true  },
-  { icon: 'settings',        label: 'Settings',       href: '#',          active: false },
-  { icon: 'contact_support', label: 'Soporte',        href: '#',          active: false },
-  { icon: 'logout',          label: 'Cerrar Sesión',  href: '/',          active: false },
+  { icon: 'dashboard',       label: 'Dashboard',      href: '/dashboard'              },
+  { icon: 'assignment',      label: 'Solicitudes',    href: '/dashboard/solicitudes'  },
+  { icon: 'storefront',      label: 'Marketplace',    href: '/dashboard/marketplace'  },
+  { icon: 'inventory_2',     label: 'Pedidos',        href: '/dashboard/pedidos'      },
+  { icon: 'shopping_cart',   label: 'Carrito',        href: '/dashboard/carrito'      },
+  { icon: 'settings',        label: 'Settings',       href: '#'                       },
+  { icon: 'logout',          label: 'Cerrar Sesión',  href: '/'                       },
 ];
 ---
 
@@ -14,8 +18,9 @@ const navItems = [
   </div>
 
   <nav class="flex-1 space-y-1 pr-4">
-    {navItems.map((item) =>
-      item.active ? (
+    {navItems.map((item) => {
+      const isActive = currentPath === item.href || (item.href !== '/dashboard' && currentPath.startsWith(item.href));
+      return isActive ? (
         <a
           href={item.href}
           class="flex items-center gap-3 px-4 py-3 bg-white text-[#004d75] rounded-l-xl font-semibold transition-all duration-200 ease-in-out"
@@ -31,7 +36,8 @@ const navItems = [
           <span class="material-symbols-outlined">{item.icon}</span>
           <span class="font-body text-sm">{item.label}</span>
         </a>
-      )
-    )}
+      );
+    })}
   </nav>
 </aside>
+
